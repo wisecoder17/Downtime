@@ -1,73 +1,76 @@
-# React + TypeScript + Vite
+# Downtime - Offline-First AI Incident Response Tool
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Downtime is an **offline-first AI incident response** coordination tool built for site reliability engineers (SREs). It allows engineers to log, diagnose, and manage critical system incidents entirely offline or in harsh remote connectivity areas (like data centres). Everything syncs securely to the team dashboard the moment network connections return.
 
-Currently, two official plugins are available:
+Built for the **PowerSync AI Hackathon**. 
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Core Tech Stack
+- **Frontend Framework:** React + Vite + TypeScript (React Router DOM)
+- **Local DB / Sync Engine:** PowerSync Web SDK (Sync Streams Edition 3) + local SQLite
+- **Backend DB:** Neon Postgres Serverless
+- **AI Agent Framework:** Mastra AI + Google Gemini (`gemini-2.0-flash`)
+- **UI & Styling:** Tailwind CSS 
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Setup & Demo Instructions
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 1. Environment Variables
+Make sure an `.env` file exists at the root of the project with the following configured tokens:
+```env
+VITE_POWERSYNC_URL=your_powersync_instance_url
+VITE_POWERSYNC_TOKEN=your_powersync_dev_token
+GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_api_key
+VITE_DATABASE_URL=your_neon_postgres_url
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Running Locally (Windows / Multi-Process)
+Because this project utilizes a React frontend, an Express sync router, and a Mastra AI diagnostic background server, there are 3 distinct processes required for development testing.
+You must run these locally in **three separate terminal/command prompt tabs**:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+**Terminal 1 (Vite Frontend):**
+```bash
+npm install
+npm run dev
 ```
+
+**Terminal 2 (Sync Express Backend):**
+```bash
+npm run dev:server
+```
+
+**Terminal 3 (Mastra AI Engine):**
+```bash
+npm run dev:mastra
+```
+
+### 3. Execution and Testing Flow (The SRE Journey)
+1. **Load Dashboard:** Open `http://localhost:5173`. You should see the top-right indicator show **"Synced"** (Green).
+2. **Go Offline:** Open Chrome DevTools -> Network Tab -> Change throttling from 'No throttling' to **'Offline'**. The sync indicator will immediately turn red.
+3. **Declare Severe Incident:** Hit *New Incident*. Report a critical outage (e.g. "Database connection pool exhausted" / "API returning 503 timeouts").
+4. **Instant Action:** Even while completely offline, the incident persists to local SQLite and instantly drops into the incident dashboard.
+5. **AI Evaluation Request:** A background Mastra generation request evaluates the outage against deep Google Gemini telemetry (simulated off `gemini-2.0-flash`) and locks out the action checklist. If Mastra gets blocked entirely by the offline switch, it provides a silent *Diagnosis unavailable* fallback so engineers aren't gridlocked.
+6. **Chronological Updates:** Engineers on your team can type chronological timeline fixes directly into the incident view entirely locally.
+7. **Come Back Online:** Switch DevTools back to **'No throttling'**. Real-time websockets catch the network, the indicator flips to **"Syncing..." (Amber Pulsing)** > **"Synced"**. All data instantly dumps to the backend Neon db, validating the Powercast architecture requirement.
+
+---
+
+## Troubleshooting
+
+### Port 3001 Already In Use
+If `npm run dev:server` exits immediately with an `EADDRINUSE` error, a stale Node process is still holding port 3001. Kill it with:
+```powershell
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 3001).OwningProcess -Force
+```
+Then re-run `npm run dev:server`.
+
+### PowerSync Token Expired
+Dev tokens expire every **12 hours**. If the SyncIndicator stays red with no network errors and the browser console shows `401` from PowerSync, regenerate the token in the [PowerSync Dashboard](https://app.powersync.com) and update `VITE_POWERSYNC_TOKEN` in `.env`. Restart `npm run dev` after.
+
+### Mastra Agent Not Responding
+If the AI panel shows "Diagnosis unavailable" immediately (not after a delay), the Mastra server may not be running or has crashed. Check Terminal 3 and re-run:
+```bash
+npm run dev:mastra
+```
+The agent endpoint must be live at `http://localhost:4111` for AI diagnosis to work. Offline incidents will still be created — the fallback is intentional and non-blocking.
+

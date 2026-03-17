@@ -27,22 +27,40 @@ export default function IncidentDetail() {
   const [content, setContent] = useState('')
   const [author, setAuthor] = useState('')
 
-  if (!incident) return null
+
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!content || !author) return
+
+    const updateId = uuidv4()
+    const now = new Date().toISOString()
+    const timeLabel = new Date().toLocaleTimeString()
+
     await db.execute(
       `INSERT INTO incident_updates (id, incident_id, content, author, created_at) VALUES (?, ?, ?, ?, ?)`,
-      [uuidv4(), id, content, author, new Date().toISOString()]
+      [updateId, id, content, author, now]
     )
+    console.log(`[${timeLabel}] 📝 Update posted by ${author}: "${content.substring(0, 20)}..."`)
     setContent('')
   }
 
-  const markInvestigating = () => db.execute(`UPDATE incidents SET status = 'investigating' WHERE id = ?`, [id])
-  const markResolved = () => db.execute(`UPDATE incidents SET status = 'resolved', resolved_at = ? WHERE id = ?`, [new Date().toISOString(), id])
+  const markInvestigating = async () => {
+    const timeLabel = new Date().toLocaleTimeString()
+    await db.execute(`UPDATE incidents SET status = 'investigating' WHERE id = ?`, [id])
+    console.log(`[${timeLabel}] 🔍 Incident ${id} marked as INVESTIGATING`)
+  }
 
-  const sev = incident.severity?.toLowerCase()
+  const markResolved = async () => {
+    const timeLabel = new Date().toLocaleTimeString()
+    const now = new Date().toISOString()
+    await db.execute(`UPDATE incidents SET status = 'resolved', resolved_at = ? WHERE id = ?`, [now, id])
+    console.log(`[${timeLabel}] ✅ Incident ${id} marked as RESOLVED`)
+  }
+
+  if (!incident) return null
+
+  const sev = incident?.severity?.toLowerCase()
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)', paddingBottom: '60px' }}>

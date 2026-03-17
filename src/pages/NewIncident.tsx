@@ -19,10 +19,12 @@ export default function NewIncident() {
   const [description, setDescription] = useState('')
   const [severity, setSeverity] = useState('low')
   const [name, setName] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title || !description || !name) return
+    if (!title || !description || !name || isSubmitting) return
+    setIsSubmitting(true)
 
     const id = uuidv4()
     const now = new Date().toISOString()
@@ -82,7 +84,11 @@ export default function NewIncident() {
       })
       .catch(async (err) => {
         const errorTime = new Date().toLocaleTimeString()
-        console.error(`[${errorTime}] ❌ IRIS: Rate limit or error hit:`, err.message)
+        console.error(`[${errorTime}] ❌ IRIS: Diagnostic Failure`, {
+          message: err.message,
+          incidentId: id,
+          title: title
+        })
         await db.execute(
           `UPDATE incidents SET ai_diagnosis = ?, ai_actions = ? WHERE id = ?`,
           ['Diagnosis unavailable', JSON.stringify({ immediate_actions: [], monitor: [] }), id]
@@ -180,10 +186,11 @@ export default function NewIncident() {
 
           <button
             type="submit"
+            disabled={isSubmitting}
             style={{
               width: '100%',
-              background: 'var(--red)',
-              color: '#fff',
+              background: isSubmitting ? 'var(--bg-elevated)' : 'var(--red)',
+              color: isSubmitting ? 'var(--text-muted)' : '#fff',
               border: 'none',
               borderRadius: 'var(--radius)',
               padding: '13px 20px',
@@ -192,14 +199,14 @@ export default function NewIncident() {
               fontWeight: 700,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              cursor: 'pointer',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
               transition: 'background var(--transition)',
               marginTop: '8px',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = '#ff6470'}
-            onMouseLeave={e => e.currentTarget.style.background = 'var(--red)'}
+            onMouseEnter={e => !isSubmitting && (e.currentTarget.style.background = '#ff6470')}
+            onMouseLeave={e => !isSubmitting && (e.currentTarget.style.background = 'var(--red)')}
           >
-            Declare Incident →
+            {isSubmitting ? 'Declaring Incident...' : 'Declare Incident →'}
           </button>
         </form>
       </main>

@@ -11,8 +11,19 @@ app.use(express.json())
 
 const pool = new pg.Pool({ connectionString: process.env.VITE_DATABASE_URL })
 
+const log = (msg, data = '') => {
+  const time = new Date().toLocaleTimeString()
+  console.log(`[${time}] ${msg}`, data)
+}
+
+const error = (msg, err = '') => {
+  const time = new Date().toLocaleTimeString()
+  console.error(`[${time}] ❌ ${msg}`, err)
+}
+
 app.post('/api/sync', async (req, res) => {
   const { table, op, record } = req.body
+  log(`Sync: ${op} ${table} (${record.id})`)
   try {
     if (table === 'incidents') {
       if (op === 'PUT') {
@@ -57,9 +68,9 @@ app.post('/api/sync', async (req, res) => {
       }
     }
     res.json({ success: true })
-  } catch (error) {
-    console.error('[/api/sync] Error:', error)
-    res.status(500).json({ error: error.message })
+  } catch (err) {
+    error('[/api/sync] Failed', err.message)
+    res.status(500).json({ error: err.message })
   }
 })
 
@@ -67,27 +78,26 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 
 // Catch pool-level errors so they don't kill the process
 pool.on('error', (err) => {
-  console.error('[pg pool] Unexpected error:', err)
+  error('pg pool error', err)
 })
 
 // Catch any unhandled rejections
 process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason)
+  error('unhandledRejection', reason)
 })
 
-// Catch any uncaught exceptions
 process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err)
+  error('uncaughtException', err)
 })
 
 const server = app.listen(3001, () => {
-  console.log('Sync server running on http://localhost:3001')
+  log('Backend active on port 3001')
 })
 
 server.on('error', (err) => {
-  console.error('[server error]', err)
+  error('server error', err)
   if (err.code === 'EADDRINUSE') {
-    console.error('Port 3001 already in use. Kill the other process and restart.')
+    error('Port 3001 occupied. Please kill the existing process.')
     process.exit(1)
   }
 })

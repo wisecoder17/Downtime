@@ -16,18 +16,38 @@ export default function AIPanel({ incident }: { incident: any }) {
   const [charIndex, setCharIndex] = useState(0)
   const [isTyping, setIsTyping] = useState(true)
   const [showResults, setShowResults] = useState(false)
+  const [hasCheckedInitial, setHasCheckedInitial] = useState(false)
+  const [wasInitiallyEmpty, setWasInitiallyEmpty] = useState(false)
 
-  // Ensure minimum thinking time (3.5s) for the demo
+  // Decide whether to show results or animate based on data state
   useEffect(() => {
-    if (incident?.ai_diagnosis) {
+    if (!incident) return // Still loading from DB
+
+    if (!hasCheckedInitial) {
+      const empty = !incident.ai_diagnosis
+      setWasInitiallyEmpty(empty)
+      setHasCheckedInitial(true)
+      
+      // If it already has a diagnosis, show it immediately
+      if (!empty) {
+        setShowResults(true)
+      }
+      return
+    }
+
+    // If it was empty on load, but now we have a diagnosis (it just arrived!)
+    if (wasInitiallyEmpty && incident.ai_diagnosis && !showResults) {
       const timer = setTimeout(() => {
         setShowResults(true)
-      }, 4000) // Hold for 4 seconds to show the IRIS chain of thought
+      }, 4000)
       return () => clearTimeout(timer)
-    } else {
-      setShowResults(false)
     }
-  }, [incident?.ai_diagnosis, incident?.id])
+
+    // Fallback: If for any reason it's not empty, make sure we show results
+    if (incident.ai_diagnosis && !wasInitiallyEmpty) {
+      setShowResults(true)
+    }
+  }, [incident?.ai_diagnosis, incident?.id, hasCheckedInitial, wasInitiallyEmpty, showResults])
 
   // Typewriter effect
   useEffect(() => {

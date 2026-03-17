@@ -1,55 +1,84 @@
 # ── Dependencies ─────────────────────────────────────────
-node_modules
+node_modules/
+.pnp
+.pnp.js
 
 # ── Build outputs ─────────────────────────────────────────
-dist
-dist-ssr
+dist/
+dist-ssr/
+build/
+out/
+.next/
+.output/
+.vinxi/
 *.local
 
 # ── Environment & secrets ─────────────────────────────────
 .env
 .env.local
 .env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.secret
 
 # ── Logs ─────────────────────────────────────────────────
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
 # ── Editor directories ────────────────────────────────────
 .vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 !.vscode/extensions.json
-.idea
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.code-workspace
 
 # ── OS artifacts ──────────────────────────────────────────
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # ── Local SQLite DB (PowerSync local store) ───────────────
 *.db
 *.db-shm
 *.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 
 # ── Mastra build cache ────────────────────────────────────
-.mastra
+.mastra/
 
 # ── Vite cache ────────────────────────────────────────────
-.vite
+.vite/
+.temp/
 
 # ── TypeScript build info ─────────────────────────────────
 *.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ── Testing ───────────────────────────────────────────────
+coverage/
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
 
 # ── Internal agent files (not for repo) ──────────────────
-.agent/rules
+.agent/
 BUILD_INTELLIGENCE.md
 plan.md
-todo.md
+# todo.md
+test.md
+tmp/

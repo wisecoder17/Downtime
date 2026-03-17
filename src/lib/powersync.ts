@@ -38,15 +38,20 @@ export async function connectPowerSync() {
     async uploadData(database) {
       const transaction = await database.getNextCrudTransaction()
       if (!transaction) return
-      for (const op of transaction.crud) {
-        const record = { ...op.opData, id: op.id }
-        await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ table: op.table, op: op.op, record }),
-        })
+      try {
+        for (const op of transaction.crud) {
+          const record = { ...op.opData, id: op.id }
+          await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table: op.table, op: op.op.toUpperCase(), record }),
+          })
+        }
+        await transaction.complete()
+      } catch (e) {
+        // Offline or server unreachable — leave transaction in queue, PowerSync will retry
+        console.debug('[uploadData] Upload deferred (offline):', e)
       }
-      await transaction.complete()
     },
   })
 }

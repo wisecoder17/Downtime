@@ -5,63 +5,64 @@ import IncidentCard from '../components/IncidentCard'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { data: incidents } = usePowerSyncQuery(
+  const incidents = usePowerSyncQuery(
     'SELECT * FROM incidents ORDER BY created_at DESC'
   )
 
-  const open = incidents?.filter((i: any) => i.status === 'open').length ?? 0
-  const investigating = incidents?.filter((i: any) => i.status === 'investigating').length ?? 0
-  const resolved = incidents?.filter((i: any) => i.status === 'resolved').length ?? 0
-  const total = incidents?.length ?? 0
+  const incidentsArray = incidents || []
 
   const stats = [
-    { label: 'TOTAL', value: total, color: 'var(--text-secondary)' },
-    { label: 'OPEN', value: open, color: 'var(--red)' },
-    { label: 'INVESTIGATING', value: investigating, color: 'var(--amber)' },
-    { label: 'RESOLVED', value: resolved, color: 'var(--green)' },
+    { label: 'TOTAL', value: incidentsArray.length, color: 'var(--text-primary)' },
+    { label: 'OPEN', value: incidentsArray.filter((i: any) => i.status === 'open').length, color: 'var(--red)' },
+    { label: 'INVESTIGATING', value: incidentsArray.filter((i: any) => i.status === 'investigating').length, color: 'var(--amber)' },
+    { label: 'RESOLVED', value: incidentsArray.filter((i: any) => i.status === 'resolved').length, color: 'var(--green)' },
   ]
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
       {/* Top Bar */}
-      <header
-        style={{
-          height: '56px',
-          background: 'var(--bg-surface)',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 24px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 50,
-        }}
-      >
-        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '0.15em', fontSize: '14px', color: 'var(--text-primary)' }}>
-          <span style={{ color: 'var(--red)' }}>●</span>{' '}DOWNTIME
-        </span>
+      <header style={{
+        height: '56px',
+        background: 'var(--bg-surface)',
+        borderBottom: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 24px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 700,
+            fontSize: '13px',
+            letterSpacing: '0.15em',
+            color: 'var(--text-primary)'
+          }}>
+            <span style={{ color: 'var(--red)' }}>●</span> DOWNTIME
+          </span>
+        </div>
         <SyncIndicator />
       </header>
 
       <main style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 24px 100px' }}>
         {/* Stats Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '32px' }}>
-          {stats.map(s => (
-            <div
-              key={s.label}
-              style={{
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)',
-                padding: '12px',
-              }}
-            >
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '24px', fontWeight: 700, color: s.color }}>
-                {s.value}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '24px' }}>
+          {stats.map(stat => (
+            <div key={stat.label} style={{
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
+              borderTop: `2px solid ${stat.color}`,
+              borderRadius: 'var(--radius)',
+              padding: '14px 16px'
+            }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: stat.color, marginBottom: '4px' }}>
+                {stat.value}
               </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '4px' }}>
-                {s.label}
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>
+                {stat.label}
               </div>
             </div>
           ))}
@@ -72,7 +73,7 @@ export default function Dashboard() {
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             Active Incidents
           </span>
-          {total > 0 && (
+          {incidentsArray.length > 0 && (
             <span
               style={{
                 background: 'var(--bg-elevated)',
@@ -84,13 +85,13 @@ export default function Dashboard() {
                 padding: '1px 7px',
               }}
             >
-              {total}
+              {incidentsArray.length}
             </span>
           )}
         </div>
 
         {/* Incident List */}
-        {!total ? (
+        {incidentsArray.length === 0 ? (
           <div
             style={{
               padding: '64px 24px',
@@ -107,8 +108,8 @@ export default function Dashboard() {
             </span>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '12px' }}>
-            {incidents.map((incident: any) => (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
+            {incidentsArray.map((incident: any) => (
               <IncidentCard key={incident.id} incident={incident} />
             ))}
           </div>
@@ -126,14 +127,14 @@ export default function Dashboard() {
           color: '#fff',
           border: 'none',
           borderRadius: 'var(--radius)',
-          padding: '12px 22px',
+          padding: '14px 24px',
           fontFamily: 'var(--font-mono)',
           fontSize: '12px',
           fontWeight: 700,
           letterSpacing: '0.1em',
           textTransform: 'uppercase',
           cursor: 'pointer',
-          boxShadow: '0 4px 20px rgba(255,71,87,0.35)',
+          boxShadow: '0 4px 20px rgba(255, 71, 87, 0.4)',
           transition: 'background var(--transition)',
         }}
         onMouseEnter={e => (e.currentTarget.style.background = '#ff6470')}

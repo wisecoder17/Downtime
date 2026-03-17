@@ -19,12 +19,10 @@ export default function NewIncident() {
   const [description, setDescription] = useState('')
   const [severity, setSeverity] = useState('low')
   const [name, setName] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title || !description || !name) return
-    setIsSubmitting(true)
 
     const id = uuidv4()
     const now = new Date().toISOString()
@@ -37,26 +35,59 @@ export default function NewIncident() {
 
     navigate(`/incidents/${id}`)
 
-    try {
-      const res = await fetch('http://localhost:4111/api/agents/IncidentDiagnosticAgent/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: `Title: ${title}\nDescription: ${description}\nSeverity: ${severity}` }]
-        })
-      })
-      const data = await res.json()
-      const parsed = JSON.parse(data.text)
-      await db.execute(
-        `UPDATE incidents SET ai_diagnosis = ?, ai_actions = ? WHERE id = ?`,
-        [parsed.diagnosis, JSON.stringify({ immediate_actions: parsed.immediate_actions || [], monitor: parsed.monitor || [] }), id]
-      )
-    } catch {
-      await db.execute(
-        `UPDATE incidents SET ai_diagnosis = ?, ai_actions = ? WHERE id = ?`,
-        ['Diagnosis unavailable', JSON.stringify({ immediate_actions: [], monitor: [] }), id]
-      )
+    const startTime = new Date().toLocaleTimeString()
+    console.log(`[${startTime}] 🤖 IRIS: Starting diagnosis for incident ${id}...`)
+
+    // MOCK TOGGLE: If title starts with MOCK:, bypass API for a stable demo
+    if (title.toUpperCase().startsWith('MOCK:')) {
+      console.log(`[${startTime}] 🛠️ IRIS: Mock mode enabled.`)
+      setTimeout(async () => {
+        const mockDiagnosis = "Probable resource exhaustion in the core service cluster, likely due to a connection pool leak or uncontrolled thread spawning in the latest deployment."
+        const mockActions = [
+          "Scale service replicas by 2x to distribute load",
+          "Identify and isolate pods with high CPU/Memory",
+          "Check Grafana: 'Service / Resource Utilization'",
+          "Initiate rolling restart to clear stale connections"
+        ]
+        const mockMonitor = ["pod_memory_utilization", "p99_request_latency", "active_db_connections"]
+        
+        await db.execute(
+          `UPDATE incidents SET ai_diagnosis = ?, ai_actions = ? WHERE id = ?`,
+          [mockDiagnosis, JSON.stringify({ immediate_actions: mockActions, monitor: mockMonitor }), id]
+        )
+        console.log(`[${new Date().toLocaleTimeString()}] ✅ IRIS: (MOCK) Diagnosis delivered.`)
+      }, 4000)
+      return
     }
+
+    fetch('http://localhost:4111/api/agents/IncidentDiagnosticAgent/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: `Title: ${title}\nDescription: ${description}\nSeverity: ${severity}` }]
+      })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then(async data => {
+        const endTime = new Date().toLocaleTimeString()
+        console.log(`[${endTime}] ✅ IRIS: Diagnosis delivered.`)
+        const parsed = JSON.parse(data.text)
+        await db.execute(
+          `UPDATE incidents SET ai_diagnosis = ?, ai_actions = ? WHERE id = ?`,
+          [parsed.diagnosis, JSON.stringify({ immediate_actions: parsed.immediate_actions || [], monitor: parsed.monitor || [] }), id]
+        )
+      })
+      .catch(async (err) => {
+        const errorTime = new Date().toLocaleTimeString()
+        console.error(`[${errorTime}] ❌ IRIS: Rate limit or error hit:`, err.message)
+        await db.execute(
+          `UPDATE incidents SET ai_diagnosis = ?, ai_actions = ? WHERE id = ?`,
+          ['Diagnosis unavailable', JSON.stringify({ immediate_actions: [], monitor: [] }), id]
+        )
+      })
   }
 
   const label = (text: string) => (
@@ -75,7 +106,6 @@ export default function NewIncident() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
-      {/* Top Bar */}
       <header style={{
         height: '56px',
         background: 'var(--bg-surface)',
@@ -86,7 +116,7 @@ export default function NewIncident() {
         padding: '0 24px',
         position: 'sticky',
         top: 0,
-        zIndex: 50,
+        zIndex: 100
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <button
@@ -106,8 +136,14 @@ export default function NewIncident() {
           >
             ←
           </button>
-          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '0.12em', fontSize: '13px', color: 'var(--text-primary)' }}>
-            NEW INCIDENT
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 700,
+            fontSize: '13px',
+            letterSpacing: '0.15em',
+            color: 'var(--text-primary)'
+          }}>
+            <span style={{ color: 'var(--red)' }}>●</span> DOWNTIME
           </span>
         </div>
         <SyncIndicator />
@@ -144,11 +180,10 @@ export default function NewIncident() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
             style={{
               width: '100%',
-              background: isSubmitting ? 'var(--bg-elevated)' : 'var(--red)',
-              color: isSubmitting ? 'var(--text-muted)' : '#fff',
+              background: 'var(--red)',
+              color: '#fff',
               border: 'none',
               borderRadius: 'var(--radius)',
               padding: '13px 20px',
@@ -157,14 +192,14 @@ export default function NewIncident() {
               fontWeight: 700,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              cursor: 'pointer',
               transition: 'background var(--transition)',
               marginTop: '8px',
             }}
-            onMouseEnter={e => { if (!isSubmitting) e.currentTarget.style.background = '#ff6470' }}
-            onMouseLeave={e => { if (!isSubmitting) e.currentTarget.style.background = 'var(--red)' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#ff6470'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--red)'}
           >
-            {isSubmitting ? 'Analysing...' : 'Declare Incident →'}
+            Declare Incident →
           </button>
         </form>
       </main>

@@ -1,10 +1,30 @@
 import { usePowerSync } from '@powersync/react'
+import { useState, useEffect } from 'react'
 
 export default function SyncIndicator() {
   const db = usePowerSync()
-  const status = db.currentStatus
+  const [status, setStatus] = useState(db.currentStatus)
+  const [isOnline, setIsOnline] = useState(window.navigator.onLine)
 
-  const isConnected = status?.connected
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    const remove = db.registerListener({
+      statusChanged: (s) => setStatus(s),
+    })
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+      remove()
+    }
+  }, [db])
+
+  const isConnected = status?.connected && isOnline
   const isSyncing = status?.dataFlowStatus?.downloading || status?.dataFlowStatus?.uploading
 
   let bg: string, border: string, color: string, label: string, pulse: boolean
@@ -21,23 +41,29 @@ export default function SyncIndicator() {
   }
 
   return (
-    <div
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full border"
-      style={{
-        background: bg,
-        borderColor: border,
-        color,
-        fontFamily: 'var(--font-mono)',
-        fontSize: '11px',
-        letterSpacing: '0.1em',
-        transition: 'all var(--transition)',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      <span
-        className={`w-2 h-2 rounded-full shrink-0 ${pulse ? 'pulse-dot' : ''}`}
-        style={{ background: color }}
-      />
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '5px 12px',
+      borderRadius: '20px',
+      border: `1px solid ${border}`,
+      background: bg,
+      color: color,
+      fontFamily: 'var(--font-mono)',
+      fontSize: '11px',
+      letterSpacing: '0.08em',
+      fontWeight: 600,
+      marginRight: '8px'
+    }}>
+      <span style={{
+        width: '7px',
+        height: '7px',
+        borderRadius: '50%',
+        background: color,
+        animation: pulse ? 'pulse 1.5s infinite' : 'none',
+        flexShrink: 0
+      }} />
       {label}
     </div>
   )

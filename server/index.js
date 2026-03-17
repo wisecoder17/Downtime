@@ -21,7 +21,9 @@ app.post('/api/sync', async (req, res) => {
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            ON CONFLICT (id) DO UPDATE SET 
              title = EXCLUDED.title, description = EXCLUDED.description, severity = EXCLUDED.severity, 
-             status = EXCLUDED.status, ai_diagnosis = EXCLUDED.ai_diagnosis, ai_actions = EXCLUDED.ai_actions,
+             status = EXCLUDED.status, 
+             ai_diagnosis = COALESCE(EXCLUDED.ai_diagnosis, incidents.ai_diagnosis), 
+             ai_actions = COALESCE(EXCLUDED.ai_actions, incidents.ai_actions),
              resolved_at = EXCLUDED.resolved_at`,
           [record.id, record.title, record.description, record.severity, record.status, record.ai_diagnosis || null, record.ai_actions || null, record.created_by, record.created_at, record.resolved_at || null]
         )

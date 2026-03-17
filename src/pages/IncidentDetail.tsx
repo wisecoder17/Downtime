@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
 import { usePowerSync, usePowerSyncQuery } from '@powersync/react'
 import SyncIndicator from '../components/SyncIndicator'
-import StatusBadge from '../components/StatusBadge'
 import AIPanel from '../components/AIPanel'
 import UpdateFeed from '../components/UpdateFeed'
 
@@ -19,8 +18,8 @@ export default function IncidentDetail() {
   const navigate = useNavigate()
   const db = usePowerSync()
 
-  const { data: incidents } = usePowerSyncQuery('SELECT * FROM incidents WHERE id = ?', [id])
-  const { data: updates } = usePowerSyncQuery(
+  const incidents = usePowerSyncQuery('SELECT * FROM incidents WHERE id = ?', [id])
+  const updates = usePowerSyncQuery(
     'SELECT * FROM incident_updates WHERE incident_id = ? ORDER BY created_at ASC', [id]
   )
 
@@ -58,10 +57,9 @@ export default function IncidentDetail() {
         padding: '0 24px',
         position: 'sticky',
         top: 0,
-        zIndex: 50,
-        gap: '16px',
+        zIndex: 100
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <button
             onClick={() => navigate('/')}
             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '18px', flexShrink: 0, transition: 'color var(--transition)' }}
@@ -70,18 +68,40 @@ export default function IncidentDetail() {
           >
             ←
           </button>
-          <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {incident.title}
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 700,
+            fontSize: '13px',
+            letterSpacing: '0.15em',
+            color: 'var(--text-primary)'
+          }}>
+            <span style={{ color: 'var(--red)' }}>●</span> DOWNTIME
           </span>
-          <StatusBadge status={incident.status} />
         </div>
         <SyncIndicator />
       </header>
 
-      <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '28px 24px', display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px', '@media(max-width:768px)': { gridTemplateColumns: '1fr' } as any }}>
+      <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '28px 24px', display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px' }}>
 
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
+          
+          {/* Description block */}
+          <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            padding: '16px 20px',
+            marginBottom: '12px'
+          }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.1em', marginBottom: '8px' }}>
+              DESCRIPTION
+            </div>
+            <div style={{ color: 'var(--text-secondary)', lineHeight: 1.7, fontSize: '14px' }}>
+              {incident.description}
+            </div>
+          </div>
+
           <AIPanel incident={incident} />
 
           {/* Updates */}
@@ -145,87 +165,80 @@ export default function IncidentDetail() {
         {/* Right column — metadata + actions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Metadata card */}
-          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-            <div style={{ borderBottom: '1px solid var(--border)', padding: '12px 16px' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600 }}>
-                Metadata
-              </span>
-            </div>
-            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <MetaRow label="SEVERITY">
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: severityColor[sev] || 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
-                  {incident.severity}
-                </span>
-              </MetaRow>
-              <MetaRow label="REPORTED BY">
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>{incident.created_by}</span>
-              </MetaRow>
-              <MetaRow label="OPENED">
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {new Date(incident.created_at).toLocaleString()}
-                </span>
-              </MetaRow>
-              {incident.resolved_at && (
-                <MetaRow label="RESOLVED">
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--green)' }}>
-                    {new Date(incident.resolved_at).toLocaleString()}
-                  </span>
-                </MetaRow>
-              )}
-            </div>
+          <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            overflow: 'hidden',
+            marginBottom: '12px'
+          }}>
+            {[
+              { label: 'SEVERITY', value: incident.severity?.toUpperCase(), color: severityColor[sev] },
+              { label: 'REPORTED BY', value: incident.created_by },
+              { label: 'OPENED', value: new Date(incident.created_at).toLocaleString() },
+              incident.resolved_at && { label: 'RESOLVED', value: new Date(incident.resolved_at).toLocaleString(), color: 'var(--green)' }
+            ].filter(Boolean).map((field: any, i, arr) => (
+              <div key={i} style={{
+                padding: '12px 16px',
+                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none'
+              }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.1em', marginBottom: '4px' }}>
+                  {field.label}
+                </div>
+                <div style={{ fontFamily: field.label === 'OPENED' || field.label === 'RESOLVED' ? 'var(--font-mono)' : 'var(--font-sans)', fontSize: '13px', color: field.color || 'var(--text-primary)', fontWeight: field.label === 'SEVERITY' ? 700 : 400 }}>
+                  {field.value}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Action buttons */}
           {incident.status !== 'resolved' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <OutlineButton color="var(--amber)" onClick={markInvestigating}>
-                Mark Investigating
-              </OutlineButton>
-              <OutlineButton color="var(--green)" onClick={markResolved}>
-                Mark Resolved
-              </OutlineButton>
+              <button onClick={markInvestigating} style={{
+                width: '100%',
+                padding: '12px',
+                marginBottom: '8px',
+                background: 'transparent',
+                border: '1.5px solid var(--amber)',
+                borderRadius: 'var(--radius)',
+                color: 'var(--amber)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                cursor: 'pointer',
+                transition: 'background var(--transition)',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--amber-dim)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                MARK INVESTIGATING
+              </button>
+              
+              <button onClick={markResolved} style={{
+                width: '100%',
+                padding: '12px',
+                background: 'var(--green)',
+                border: '1.5px solid var(--green)',
+                borderRadius: 'var(--radius)',
+                color: '#000',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                cursor: 'pointer',
+                transition: 'opacity var(--transition)',
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+              >
+                MARK RESOLVED ✓
+              </button>
             </div>
           )}
         </div>
       </main>
     </div>
-  )
-}
-
-function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '3px' }}>
-        {label}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function OutlineButton({ color, onClick, children }: { color: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        width: '100%',
-        background: 'transparent',
-        border: `1px solid ${color}`,
-        borderRadius: 'var(--radius)',
-        color,
-        padding: '9px 12px',
-        fontFamily: 'var(--font-mono)',
-        fontSize: '11px',
-        fontWeight: 700,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        cursor: 'pointer',
-        transition: 'background var(--transition)',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.background = color + '22')}
-      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-    >
-      {children}
-    </button>
   )
 }

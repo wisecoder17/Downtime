@@ -35,65 +35,12 @@ export default function NewIncident() {
       [id, title, description, severity, name, now]
     )
 
-    navigate(`/incidents/${id}`)
-
-    const startTime = new Date().toLocaleTimeString()
-    console.log(`[${startTime}] 🤖 IRIS: Starting diagnosis for incident ${id}...`)
-
-    // MOCK TOGGLE: If title starts with MOCK:, bypass API for a stable demo
+    // Log for demo tracking
     if (title.toUpperCase().startsWith('MOCK:')) {
-      console.log(`[${startTime}] 🛠️ IRIS: Mock mode enabled.`)
-      setTimeout(async () => {
-        const mockDiagnosis = "Probable resource exhaustion in the core service cluster, likely due to a connection pool leak or uncontrolled thread spawning in the latest deployment."
-        const mockActions = [
-          "Scale service replicas by 2x to distribute load",
-          "Identify and isolate pods with high CPU/Memory",
-          "Check Grafana: 'Service / Resource Utilization'",
-          "Initiate rolling restart to clear stale connections"
-        ]
-        const mockMonitor = ["pod_memory_utilization", "p99_request_latency", "active_db_connections"]
-        
-        await db.execute(
-          `UPDATE incidents SET ai_diagnosis = ?, ai_actions = ? WHERE id = ?`,
-          [mockDiagnosis, JSON.stringify({ immediate_actions: mockActions, monitor: mockMonitor }), id]
-        )
-        console.log(`[${new Date().toLocaleTimeString()}] ✅ IRIS: (MOCK) Diagnosis delivered.`)
-      }, 4000)
-      return
+      console.log(`[${new Date().toLocaleTimeString()}] 🛠️ IRIS: Mock mode requested for ${id}. (Now handled by Server)`)
     }
 
-    fetch('http://localhost:4111/api/agents/IncidentDiagnosticAgent/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: `Title: ${title}\nDescription: ${description}\nSeverity: ${severity}` }]
-      })
-    })
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then(async data => {
-        const endTime = new Date().toLocaleTimeString()
-        console.log(`[${endTime}] ✅ IRIS: Diagnosis delivered.`)
-        const parsed = JSON.parse(data.text)
-        await db.execute(
-          `UPDATE incidents SET ai_diagnosis = ?, ai_actions = ? WHERE id = ?`,
-          [parsed.diagnosis, JSON.stringify({ immediate_actions: parsed.immediate_actions || [], monitor: parsed.monitor || [] }), id]
-        )
-      })
-      .catch(async (err) => {
-        const errorTime = new Date().toLocaleTimeString()
-        console.error(`[${errorTime}] ❌ IRIS: Diagnostic Failure`, {
-          message: err.message,
-          incidentId: id,
-          title: title
-        })
-        await db.execute(
-          `UPDATE incidents SET ai_diagnosis = ?, ai_actions = ? WHERE id = ?`,
-          ['Diagnosis unavailable', JSON.stringify({ immediate_actions: [], monitor: [] }), id]
-        )
-      })
+    navigate(`/incidents/${id}`)
   }
 
   const label = (text: string) => (

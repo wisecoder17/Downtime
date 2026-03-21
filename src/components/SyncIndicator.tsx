@@ -1,20 +1,27 @@
-import { usePowerSync } from '@powersync/react'
+import { db, backendConnector } from '../lib/powersync'
 import { useState, useEffect } from 'react'
 
 export default function SyncIndicator() {
-  const db = usePowerSync()
   const [status, setStatus] = useState(db.currentStatus)
   const [isOnline, setIsOnline] = useState(window.navigator.onLine)
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true)
+    const handleOnline = () => {
+      setIsOnline(true)
+      // Force PowerSync to re-connect with the correct connector
+      db.connect(backendConnector).catch(e => console.error('PowerSync reconnect failed:', e))
+    }
     const handleOffline = () => setIsOnline(false)
 
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
 
     const remove = db.registerListener({
-      statusChanged: (s) => setStatus(s),
+      statusChanged: (s) => {
+        setStatus(s)
+        // Fresh check of navigator on every status change as well
+        setIsOnline(window.navigator.onLine)
+      },
     })
 
     return () => {
@@ -24,20 +31,37 @@ export default function SyncIndicator() {
     }
   }, [db])
 
-  const isConnected = status?.connected && isOnline
+  const isConnected = status?.connected
+  const isConnecting = status?.connecting
   const isSyncing = status?.dataFlowStatus?.downloading || status?.dataFlowStatus?.uploading
 
   let bg: string, border: string, color: string, label: string, pulse: boolean
 
-  if (isConnected && !isSyncing) {
-    bg = 'var(--green-dim)'; border = 'var(--green)'; color = 'var(--green)'
-    label = 'SYNCED'; pulse = false
-  } else if (isConnected && isSyncing) {
-    bg = 'var(--amber-dim)'; border = 'var(--amber)'; color = 'var(--amber)'
-    label = 'SYNCING...'; pulse = true
-  } else {
+  // Hierarchy of Truth:
+  // 1. If the browser/hardware is offline, we are OFFLINE. (Immediate feedback for user/judge)
+  if (!isOnline) {
     bg = 'var(--red-dim)'; border = 'var(--red)'; color = 'var(--red)'
     label = 'OFFLINE · LOCAL ONLY'; pulse = true
+  } 
+  // 2. If we are online but not connected yet
+  else if (isConnecting && !isConnected) {
+    bg = 'var(--amber-dim)'; border = 'var(--amber)'; color = 'var(--amber)'
+    label = 'CONNECTING...'; pulse = true
+  }
+  // 3. If we are online but specifically disconnected (socket closed/error)
+  else if (!isConnected) {
+    bg = 'var(--red-dim)'; border = 'var(--red)'; color = 'var(--red)'
+    label = 'RECONNECTING...'; pulse = true
+  }
+  // 4. We are connected! Show data flow
+  else if (isSyncing) {
+    bg = 'var(--amber-dim)'; border = 'var(--amber)'; color = 'var(--amber)'
+    label = 'SYNCING...'; pulse = true
+  }
+  // 5. All systems nominal
+  else {
+    bg = 'var(--green-dim)'; border = 'var(--green)'; color = 'var(--green)'
+    label = 'SYNCED'; pulse = false
   }
 
   return (

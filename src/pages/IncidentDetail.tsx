@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import { usePowerSync, usePowerSyncQuery } from "@powersync/react";
@@ -18,6 +18,7 @@ export default function IncidentDetail() {
   const navigate = useNavigate();
   const db = usePowerSync();
 
+
   const incidents = usePowerSyncQuery("SELECT * FROM incidents WHERE id = ?", [
     id,
   ]);
@@ -29,6 +30,49 @@ export default function IncidentDetail() {
   const incident = incidents?.[0];
   const [content, setContent] = useState("");
   const [author, setAuthor] = useState("");
+  
+  // Local state buffer to ensure instant UI update when poll succeeds,
+  // bypassing any PowerSync sync-stream propagation delay.
+  const [localDiagnosis, setLocalDiagnosis] = useState<{diag: string|null, actions: string|null}>({ diag: null, actions: null });
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Diagnosis polling: when ai_diagnosis is absent, ask the server every 2s.
+  // Writes the result directly to local SQLite so usePowerSyncQuery reacts immediately.
+  // This bypasses the PowerSync sync-stream delay for server-written AI data.
+  useEffect(() => {
+    if (!id) return;
+
+    const currentDiag = incident?.ai_diagnosis || localDiagnosis.diag;
+    if (currentDiag) {
+      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+      return;
+    }
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/diagnosis/${id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        if (data.ai_diagnosis) {
+          // 1. Update local state for INSTANT UI reaction
+          setLocalDiagnosis({ diag: data.ai_diagnosis, actions: data.ai_actions });
+          
+          // 2. Persist to local SQLite for permanence
+          await db.execute(
+            'UPDATE incidents SET ai_diagnosis = ?, ai_actions = ? WHERE id = ?',
+            [data.ai_diagnosis, data.ai_actions || null, id]
+          );
+          
+          if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+        }
+      } catch { /* keep polling */ }
+    };
+
+    poll();
+    pollingRef.current = setInterval(poll, 1500); 
+    return () => { if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; } };
+  }, [id, incident?.ai_diagnosis, localDiagnosis.diag, db]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,7 +225,13 @@ export default function IncidentDetail() {
             </div>
           </div>
 
-          <AIPanel incident={incident} />
+          <AIPanel 
+            incident={{
+              ...incident,
+              ai_diagnosis: incident?.ai_diagnosis || localDiagnosis.diag,
+              ai_actions: incident?.ai_actions || localDiagnosis.actions
+            }} 
+          />
 
           {/* Updates */}
           <div

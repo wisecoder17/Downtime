@@ -5,6 +5,8 @@ import IncidentCard from '../components/IncidentCard'
 
 export default function Dashboard() {
   const navigate = useNavigate()
+
+
   const incidents = usePowerSyncQuery(
     'SELECT * FROM incidents ORDER BY created_at DESC'
   )

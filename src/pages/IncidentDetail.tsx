@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
-import { usePowerSync, usePowerSyncQuery } from "@powersync/react";
+import { usePowerSync, useQuery } from "@powersync/react";
 import SyncIndicator from "../components/SyncIndicator";
 import AIPanel from "../components/AIPanel";
 import UpdateFeed from "../components/UpdateFeed";
@@ -19,10 +19,10 @@ export default function IncidentDetail() {
   const db = usePowerSync();
 
 
-  const incidents = usePowerSyncQuery("SELECT * FROM incidents WHERE id = ?", [
+  const { data: incidents } = useQuery("SELECT * FROM incidents WHERE id = ?", [
     id,
   ]);
-  const updates = usePowerSyncQuery(
+  const { data: updates } = useQuery(
     "SELECT * FROM incident_updates WHERE incident_id = ? ORDER BY created_at ASC",
     [id],
   );

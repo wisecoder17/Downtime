@@ -1,4 +1,4 @@
-import { usePowerSyncQuery } from '@powersync/react'
+import { useQuery } from '@powersync/react'
 import { useNavigate } from 'react-router-dom'
 import SyncIndicator from '../components/SyncIndicator'
 import IncidentCard from '../components/IncidentCard'
@@ -6,12 +6,12 @@ import IncidentCard from '../components/IncidentCard'
 export default function Dashboard() {
   const navigate = useNavigate()
 
-
-  const incidents = usePowerSyncQuery(
+  const { data: incidents } = useQuery(
     'SELECT * FROM incidents ORDER BY created_at DESC'
   )
 
   const incidentsArray = incidents || []
+
 
   const stats = [
     { label: 'TOTAL', value: incidentsArray.length, color: 'var(--text-primary)' },

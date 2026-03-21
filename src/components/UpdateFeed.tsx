@@ -32,7 +32,7 @@ export default function UpdateFeed({ updates }: { updates: any[] }) {
 
       {updates.map((update, idx) => (
         <div
-          key={idx}
+          key={update.id}
           style={{
             display: 'flex',
             gap: '16px',

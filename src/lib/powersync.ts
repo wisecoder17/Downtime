@@ -26,8 +26,8 @@ const enableMultiTabs = typeof SharedWorker !== 'undefined'
 export const db = new PowerSyncDatabase({
   schema: AppSchema,
   database: new WASQLiteOpenFactory({
-    dbFilename: 'downtime.db',
-    vfs: WASQLiteVFS.IDBBatchAtomicVFS,
+    dbFilename: 'downtime_v2.db', // New version for OPFS
+    vfs: WASQLiteVFS.OPFSCoopSyncVFS,
     flags: { enableMultiTabs }
   }),
   flags: {
